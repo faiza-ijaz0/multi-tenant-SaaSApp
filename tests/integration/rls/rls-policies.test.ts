@@ -16,7 +16,9 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await teardownFixtures(fx);
+  // setupFixtures cleans up after itself on failure, so fx is only ever
+  // undefined here if beforeAll never got far enough to create anything.
+  if (fx) await teardownFixtures(fx);
 }, 60_000);
 
 describe("positive RLS access (real authenticated sessions)", () => {

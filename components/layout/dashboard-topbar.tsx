@@ -1,3 +1,6 @@
+"use client";
+
+import { useTransition } from "react";
 import { LogOut, Settings, UserRound } from "lucide-react";
 
 import { DashboardMobileNav } from "@/components/layout/dashboard-mobile-nav";
@@ -10,8 +13,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { signOut } from "@/lib/auth/auth-actions";
 
 export function DashboardTopbar() {
+  const [isSigningOut, startSignOutTransition] = useTransition();
+
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4 sm:px-6">
       <DashboardMobileNav />
@@ -37,9 +43,17 @@ export function DashboardTopbar() {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive">
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={isSigningOut}
+              onSelect={() => {
+                startSignOutTransition(() => {
+                  void signOut();
+                });
+              }}
+            >
               <LogOut className="size-4" aria-hidden="true" />
-              Sign out
+              {isSigningOut ? "Signing out…" : "Sign out"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

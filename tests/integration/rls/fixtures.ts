@@ -42,13 +42,45 @@ async function must(label: string, promise: PromiseLike<{ error: { message: stri
   if (error) throw new Error(`Fixture setup failed at "${label}": ${error.message}`);
 }
 
+async function cleanupOrganizationsAndIdentities(
+  orgIds: string[],
+  identityIds: string[],
+): Promise<void> {
+  // Deleting the orgs cascades categories/statuses/submissions/memberships/
+  // customers/portal_settings/comments/votes owned by them.
+  await Promise.allSettled(orgIds.map((id) => adminClient.from("organizations").delete().eq("id", id)));
+  // Deleting the auth.users rows cascades their profiles rows.
+  await Promise.allSettled(identityIds.map(deleteTestIdentity));
+}
+
+/**
+ * Creates the fixtures, tracking every identity/org id as soon as it exists
+ * (before the call that might fail on the *next* one) so that a failure
+ * partway through -- e.g. a transient network error -- cleans up whatever
+ * was already created instead of leaking it. Deleting an id that was never
+ * actually inserted (e.g. an org whose own insert is what failed) is a
+ * harmless no-op delete.
+ */
 export async function setupFixtures(): Promise<RlsFixtures> {
+  const identityIds: string[] = [];
+  const orgIds: string[] = [];
+
+  try {
+    return await buildFixtures(identityIds, orgIds);
+  } catch (error) {
+    await cleanupOrganizationsAndIdentities(orgIds, identityIds);
+    throw error;
+  }
+}
+
+async function buildFixtures(identityIds: string[], orgIds: string[]): Promise<RlsFixtures> {
   const [ownerA, ownerB, customerA, customerB] = await Promise.all([
     createTestIdentity("org-a-owner"),
     createTestIdentity("org-b-owner"),
     createTestIdentity("org-a-customer"),
     createTestIdentity("org-b-customer"),
   ]);
+  identityIds.push(ownerA.id, ownerB.id, customerA.id, customerB.id);
 
   const [clientOwnerA, clientOwnerB, clientCustomerA, clientCustomerB] = await Promise.all([
     signInAs(ownerA),
@@ -65,6 +97,7 @@ export async function setupFixtures(): Promise<RlsFixtures> {
 
   const orgA = { id: randomUUID(), slug: `rls-test-a-${shortSlugSuffix()}` };
   const orgB = { id: randomUUID(), slug: `rls-test-b-${shortSlugSuffix()}` };
+  orgIds.push(orgA.id, orgB.id);
 
   // Real organizations_insert_authenticated exercise.
   await must(
@@ -222,18 +255,8 @@ export async function setupFixtures(): Promise<RlsFixtures> {
 }
 
 export async function teardownFixtures(fixtures: RlsFixtures): Promise<void> {
-  // Deleting the orgs cascades categories/statuses/submissions/memberships/
-  // customers/portal_settings/comments/votes owned by them.
-  await Promise.allSettled([
-    adminClient.from("organizations").delete().eq("id", fixtures.orgA.id),
-    adminClient.from("organizations").delete().eq("id", fixtures.orgB.id),
-  ]);
-
-  // Deleting the auth.users rows cascades their profiles rows.
-  await Promise.allSettled([
-    deleteTestIdentity(fixtures.ownerA.id),
-    deleteTestIdentity(fixtures.ownerB.id),
-    deleteTestIdentity(fixtures.customerA.id),
-    deleteTestIdentity(fixtures.customerB.id),
-  ]);
+  await cleanupOrganizationsAndIdentities(
+    [fixtures.orgA.id, fixtures.orgB.id],
+    [fixtures.ownerA.id, fixtures.ownerB.id, fixtures.customerA.id, fixtures.customerB.id],
+  );
 }

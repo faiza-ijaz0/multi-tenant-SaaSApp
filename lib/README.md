@@ -2,8 +2,7 @@
 
 Cross-cutting code shared by multiple features, not a home for feature-specific logic (that belongs in `features/*`).
 
-Planned subfolders, added as each is actually needed:
-- `supabase/` — server and browser Supabase clients (Phase 2, with auth)
-- `auth/` — session helpers, org-role and customer-participation resolution (Phase 2)
-- `authorization/` — role → permission capability checks (Phase 2+)
-- `validation/` — shared Zod schemas (as features need them)
+Subfolders:
+- `supabase/` — browser (`client.ts`), server/Server Component (`server.ts`), and proxy (`proxy.ts`) Supabase clients. `server.ts` and `proxy.ts` read the session from request cookies; `proxy.ts` is called from the root `proxy.ts` purely to refresh the session cookie (no route protection, no redirects -- there's no login page yet and the public `/feedback` portal must stay reachable anonymously).
+- `auth/` — the single authoritative tenant-context layer: `user.ts` (`getAuthenticatedUser`, via `supabase.auth.getClaims()` -- never `getSession()`), `organization.ts` (`listUserMemberships`, `resolveOrganizationContext` -- the only place that turns a client-influenced organization id into an authorized `OrganizationContext`), `selected-organization.ts` + `actions.ts` (cookie-based org switching, always re-validated against real memberships before it's trusted), `context.ts` (`cache()`-memoized Next.js entry points: `getCurrentUser`, `getCurrentOrganizationContext`), `types.ts`, `errors.ts` (typed `UnauthenticatedError` / `OrganizationNotFoundError` / `OrganizationAccessDeniedError` / `InvalidOrganizationContextError`). `user.ts`/`organization.ts` take a plain `SupabaseClient` and are framework-agnostic on purpose -- exercised directly with real signed-in sessions in `tests/integration/tenant-context/`, not just through Next.js glue.
+- Planned, not yet needed: `authorization/` — role → permission capability checks, once a feature actually needs finer-grained checks than "is a member" / "is an admin". `validation/` — shared Zod schemas (as features need them).
