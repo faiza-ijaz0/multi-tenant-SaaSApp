@@ -1,8 +1,10 @@
 import { Building2, Inbox } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { EmptyState } from "@/components/states/empty-state";
 import { PageHeader } from "@/components/states/page-header";
+import { Button } from "@/components/ui/button";
 import { getCurrentOrganizationContext } from "@/lib/auth/context";
 import {
   OrganizationAccessDeniedError,
@@ -49,6 +51,11 @@ export default async function DashboardPage() {
           icon={<Building2 className="size-5" aria-hidden="true" />}
           title="No organization yet"
           description="You're not a member of an organization yet."
+          action={
+            <Button asChild size="sm">
+              <Link href="/onboarding">Create an organization</Link>
+            </Button>
+          }
         />
       </div>
     );

@@ -6,12 +6,12 @@ import { updateSession } from "@/lib/supabase/proxy";
  * Path prefixes that require a session to even attempt rendering. This is
  * an optimistic, JWT-claims-only check (no database query) -- the real
  * authorization boundary is still enforced server-side per page (e.g.
- * app/dashboard/page.tsx via lib/auth/context.ts) and, underneath that, by
- * RLS. Everything not listed here -- /, /feedback, /login, /signup,
- * /forgot-password, /reset-password, /auth/confirm -- stays reachable
- * without a session.
+ * app/dashboard/page.tsx, app/onboarding/page.tsx, via lib/auth/context.ts)
+ * and, underneath that, by RLS. Everything not listed here -- /, /feedback,
+ * /login, /signup, /forgot-password, /reset-password, /auth/confirm --
+ * stays reachable without a session.
  */
-const PROTECTED_PREFIXES = ["/dashboard"];
+const PROTECTED_PREFIXES = ["/dashboard", "/onboarding"];
 
 export async function proxy(request: NextRequest) {
   const { response, isAuthenticated } = await updateSession(request);
