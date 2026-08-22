@@ -45,8 +45,13 @@ export async function GET(request: NextRequest) {
     console.error("exchangeCodeForSession failed:", error.code ?? error.name, error.message);
   }
 
-  // Invalid, expired, or already-used link.
-  redirectTo.pathname = next === "/reset-password" ? "/reset-password" : "/login";
+  // Invalid, expired, or already-used link. A /feedback next target means
+  // this was the customer signup/reset flow (see lib/auth/
+  // customer-auth-actions.ts) -- send it back to the customer-facing sign-in,
+  // never the internal /login, so a customer never lands on admin-branded
+  // chrome.
+  redirectTo.pathname =
+    next === "/reset-password" ? "/reset-password" : next.startsWith("/feedback") ? "/feedback/sign-in" : "/login";
   redirectTo.searchParams.set("error", "invalid_link");
   return NextResponse.redirect(redirectTo);
 }

@@ -4,7 +4,15 @@ import { useEffect } from "react";
 
 import { ErrorState } from "@/components/states/error-state";
 
-export default function GlobalError({
+/**
+ * Regular error boundary for the root segment -- renders inside
+ * app/layout.tsx's own <html>/<body>, same as app/dashboard/error.tsx and
+ * app/feedback/error.tsx do for their segments. Must NOT render its own
+ * <html>/<body> (that's app/global-error.tsx's job, for the separate case
+ * where the root layout itself fails and there is no outer <html>/<body>
+ * left to render into).
+ */
+export default function RootError({
   error,
   reset,
 }: {
@@ -16,14 +24,12 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html lang="en">
-      <body className="flex min-h-svh items-center justify-center px-6">
-        <ErrorState
-          title="Something went wrong"
-          description="An unexpected error occurred. Please try again."
-          onRetry={reset}
-        />
-      </body>
-    </html>
+    <main className="flex min-h-svh flex-1 items-center justify-center px-6">
+      <ErrorState
+        title="Something went wrong"
+        description="An unexpected error occurred. Please try again."
+        onRetry={reset}
+      />
+    </main>
   );
 }

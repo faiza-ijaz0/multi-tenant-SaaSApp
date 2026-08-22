@@ -1,55 +1,66 @@
 "use server";
 
-import type { AuthError } from "@supabase/supabase-js";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import {
+  isAccessibleDashboardPath,
+  resolveFirstAccessiblePath,
+} from "@/components/layout/dashboard-nav-items";
 import { createClient } from "@/lib/supabase/server";
+import { getEffectivePermissions, hasPage } from "@/lib/authorization/permissions";
+import type { PageKey } from "@/lib/authorization/registry";
 
+import { getTenantScope } from "./context";
+import { getOrigin, isValidEmail, toUserFacingAuthError } from "./auth-helpers";
 import {
   MIN_PASSWORD_LENGTH,
   sanitizeNextPath,
   type AuthFormState,
 } from "./auth-form-state";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function isValidEmail(value: string): boolean {
-  return EMAIL_PATTERN.test(value);
-}
-
-async function getOrigin(): Promise<string> {
-  const headersList = await headers();
-  const host = headersList.get("x-forwarded-host") ?? headersList.get("host") ?? "localhost:3000";
-  const protocol = headersList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${protocol}://${host}`;
-}
-
 /**
- * Maps a Supabase Auth error to safe, actionable copy. Never returns
- * error.message directly -- that's logged server-side for us to see, not
- * shown to the client.
+ * Picks where a just-signed-in user actually lands, instead of blindly
+ * trusting `requestedNext` (which defaults to /dashboard whenever the
+ * caller didn't arrive via a specific protected-route bounce -- see
+ * sanitizeNextPath). An owner, or anyone else who genuinely holds the
+ * Dashboard page permission, keeps requestedNext exactly as before
+ * (isAccessibleDashboardPath is true for every /dashboard* path once
+ * getEffectivePermissions().isOwner bypasses hasPage() unconditionally).
+ * Anyone without access to that specific target instead lands on the first
+ * page their real, server-resolved effective permissions actually grant
+ * (dashboardNavItems' canonical order), reusing the exact same
+ * getTenantScope()/getEffectivePermissions()/hasPage() pipeline every
+ * dashboard route guard already uses -- never a second, parallel
+ * permission system, and never anything derived from client input.
+ *
+ * Only /dashboard and its sub-routes are ever second-guessed here --
+ * non-dashboard next targets (e.g. /onboarding, reached the same way after
+ * a protected-route bounce) are returned unchanged, exactly like before
+ * this function existed.
  */
-function toUserFacingAuthError(error: AuthError): string {
-  console.error("Supabase auth error:", error.code ?? error.name, error.message);
-
-  switch (error.code) {
-    case "invalid_credentials":
-      return "Incorrect email or password.";
-    case "email_not_confirmed":
-      return "Please confirm your email address before signing in.";
-    case "user_already_exists":
-      return "An account with this email already exists. Try signing in instead.";
-    case "weak_password":
-      return `Password is too weak. Use at least ${MIN_PASSWORD_LENGTH} characters.`;
-    case "over_email_send_rate_limit":
-    case "over_request_rate_limit":
-      return "Too many requests. Please wait a moment and try again.";
-    case "same_password":
-      return "New password must be different from your current password.";
-    default:
-      return "Something went wrong. Please try again.";
+async function resolvePostLoginRedirect(requestedNext: string): Promise<string> {
+  if (requestedNext !== "/dashboard" && !requestedNext.startsWith("/dashboard/")) {
+    return requestedNext;
   }
+
+  let scope;
+  try {
+    scope = await getTenantScope();
+  } catch {
+    // No organization yet, access denied, or any other resolution failure --
+    // preserve the pre-existing behavior for these (e.g. /dashboard's own
+    // "create an organization" empty state already handles the no-org case).
+    return requestedNext;
+  }
+
+  const permissions = await getEffectivePermissions(scope);
+  const isPageAllowed = (page: PageKey) => hasPage(permissions, page);
+
+  if (isAccessibleDashboardPath(requestedNext, isPageAllowed)) {
+    return requestedNext;
+  }
+
+  return resolveFirstAccessiblePath(isPageAllowed) ?? "/dashboard/no-access";
 }
 
 export async function login(
@@ -73,7 +84,7 @@ export async function login(
     return { status: "error", message: toUserFacingAuthError(error) };
   }
 
-  redirect(next);
+  redirect(await resolvePostLoginRedirect(next));
 }
 
 export async function signup(
@@ -183,6 +194,19 @@ export async function updatePassword(
 
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  try {
+    await supabase.auth.signOut();
+  } catch (error) {
+    // supabase.auth.signOut() normally resolves with an { error } field
+    // rather than throwing -- this only catches a genuine lower-level
+    // failure (e.g. the underlying fetch itself rejecting). Redirecting to
+    // /login regardless is deliberate: it's the safest outcome for a
+    // sign-out action either way (the local session cookies are cleared by
+    // the client before any remote call, so there is no "authenticated but
+    // stuck" state to protect by staying put), and it avoids leaving the
+    // user on an unhandled-rejection error page for what they experience
+    // as a successful sign-out.
+    console.error("supabase.auth.signOut() failed:", error);
+  }
   redirect("/login");
 }

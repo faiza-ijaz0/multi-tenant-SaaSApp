@@ -51,4 +51,4 @@ Schema changes always go: write/update a migration file in `supabase/migrations/
 
 ## Status
 
-Phase 0 (this foundation): scaffolding, design system, app shell, error/loading boundaries, environment config. No auth, no database schema, no feedback features yet — those begin in later phases.
+Production release-hardening phase. Authentication (internal + customer), multi-tenant RLS schema, RBAC/permissions, customer portal, feedback lifecycle, analytics, and marketing site are all implemented — see `README.md` for the full feature and architecture writeup.

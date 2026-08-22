@@ -53,6 +53,26 @@ describe("positive RLS access (real authenticated sessions)", () => {
     expect(ownRow.data).not.toBeNull();
   });
 
+  it("a registered customer of a PRIVATE portal can resolve that portal's own settings (0017_portal_settings_customer_access.sql)", async () => {
+    // customerB is a real, registered customer of Org B (customers_insert_self_or_admin,
+    // exercised in fixtures.ts), and Org B's portal is private (is_public:
+    // false). Before 0017, portal_settings_select_member_or_public had no
+    // is_organization_customer branch -- this exact read was denied even
+    // though customerB legitimately belongs to Org B and can already read
+    // Org B's categories/statuses/submissions (see
+    // "Org A customer can access permitted customer-scoped Org A data"
+    // above, same shape). This assertion is expected to fail until 0017 is
+    // applied to the live database -- see that migration's header.
+    const portal = await fx.clientCustomerB
+      .from("portal_settings")
+      .select("slug, is_public")
+      .eq("organization_id", fx.orgB.id)
+      .maybeSingle();
+    expect(portal.error).toBeNull();
+    expect(portal.data?.slug).toBe(fx.orgB.slug);
+    expect(portal.data?.is_public).toBe(false);
+  });
+
   it("an unrelated customer can read Org A's public portal data purely via is_public", async () => {
     // customerB belongs to Org B, not Org A -- this proves public-portal access
     // is governed by is_public, not by any relationship to the org.
@@ -144,6 +164,14 @@ describe("negative tenant isolation (real authenticated sessions)", () => {
 
   it("Org A customer cannot access Org B customer data", async () => {
     const result = await fx.clientCustomerA.from("customers").select("id").eq("organization_id", fx.orgB.id);
+    expect(isDenied(result)).toBe(true);
+  });
+
+  it("0017's new is_organization_customer branch on portal_settings does not widen access to an org the caller isn't a customer of", async () => {
+    // customerA belongs to Org A, not Org B -- confirms the 0017 widening is
+    // strictly per-organization-relationship, never a blanket "any
+    // authenticated user" grant.
+    const result = await fx.clientCustomerA.from("portal_settings").select("id").eq("organization_id", fx.orgB.id);
     expect(isDenied(result)).toBe(true);
   });
 

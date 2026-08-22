@@ -34,6 +34,8 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-sky: var(--sky);
+  --color-sky-foreground: var(--sky-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -58,94 +60,129 @@
 }
 
 /*
- * SignalBoard design tokens.
- * Restrained neutral base (zero-chroma grays) + a single indigo accent
- * (hue 264) reused across primary actions, focus rings, and the "info"
- * status. Success/warning/info are semantic status tokens for submission
- * workflow states (categories, statuses, badges) defined here so later
- * feature work never hardcodes ad-hoc colors.
+ * SignalBoard design tokens -- luxury SaaS direction.
+ *
+ * Every component in this codebase consumes these tokens exclusively
+ * (bg-background, text-foreground, bg-card, bg-primary, border-border,
+ * etc. -- see components/ui/*) and never hardcodes a raw color, so the
+ * entire application's palette is fully controlled from this one place.
+ *
+ * Dark mode: black / deep charcoal / brown surfaces with a refined gold
+ * primary accent (hue ~88, restrained chroma -- not neon).
+ * Light mode: soft grey neutral surfaces with a muted purple primary and
+ * a refined pink secondary/accent tint.
+ * Semantic status tokens (success/warning/info/destructive) are kept
+ * hue-distinct from the brand accent in each mode so a warning badge is
+ * never confusable with a primary action.
  */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.958 0.005 300);
+  --foreground: oklch(0.22 0.015 300);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.22 0.015 300);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.47 0.18 264);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --popover-foreground: oklch(0.22 0.015 300);
+  --primary: oklch(0.46 0.11 302);
+  --primary-foreground: oklch(0.985 0.004 300);
+  --secondary: oklch(0.95 0.016 340);
+  --secondary-foreground: oklch(0.32 0.055 340);
+  --muted: oklch(0.965 0.005 300);
+  --muted-foreground: oklch(0.5 0.012 300);
+  --accent: oklch(0.945 0.022 345);
+  --accent-foreground: oklch(0.3 0.06 345);
+  --destructive: oklch(0.577 0.22 25);
   --destructive-foreground: oklch(0.985 0 0);
-  --success: oklch(0.52 0.15 145);
+  --success: oklch(0.52 0.12 155);
   --success-foreground: oklch(0.985 0 0);
-  --warning: oklch(0.75 0.16 80);
-  --warning-foreground: oklch(0.205 0 0);
-  --info: oklch(0.55 0.15 230);
+  --warning: oklch(0.72 0.15 65);
+  --warning-foreground: oklch(0.22 0.02 65);
+  --info: oklch(0.55 0.13 250);
   --info-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.55 0.18 264);
-  --chart-1: oklch(0.47 0.18 264);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  /*
+   * The dedicated "very light sky-blue" secondary accent (Enterprise Luxury
+   * phase) -- deliberately a distinct hue (~215, cyan-leaning) and much
+   * softer chroma than --info (250, a more saturated true blue) so the two
+   * never compete: --info stays reserved for its existing semantic/status
+   * usage, --sky is the airy accent used for icon containers, tinted
+   * washes, badges, and chart highlights that want a "premium sky" feel.
+   */
+  --sky: oklch(0.58 0.09 215);
+  --sky-foreground: oklch(0.985 0.01 215);
+  --border: oklch(0.9 0.008 300);
+  --input: oklch(0.9 0.008 300);
+  --ring: oklch(0.53 0.1 302);
+  --chart-1: oklch(0.46 0.11 302);
+  --chart-2: oklch(0.6 0.1 345);
+  --chart-3: oklch(0.55 0.01 300);
+  --chart-4: oklch(0.42 0.02 300);
+  --chart-5: oklch(0.3 0.02 300);
   --radius: 0.5rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.47 0.18 264);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.55 0.18 264);
+  --shadow-color: 300 15% 30%;
+  /*
+   * The sidebar is a DELIBERATE exception to "everything follows light/dark
+   * mode": it stays a dark charcoal surface in BOTH themes, same as the
+   * luxury-SaaS reference this direction is based on (a dark nav rail next
+   * to light content, not a sidebar that flips to white in light mode).
+   * This is what actually gives the product a distinct navigational
+   * identity instead of the sidebar disappearing into the page background.
+   */
+  --sidebar: oklch(0.205 0.016 300);
+  --sidebar-foreground: oklch(0.93 0.008 300);
+  --sidebar-primary: oklch(0.72 0.13 302);
+  --sidebar-primary-foreground: oklch(0.98 0.004 300);
+  --sidebar-accent: oklch(0.72 0.13 302 / 16%);
+  --sidebar-accent-foreground: oklch(0.86 0.05 302);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.72 0.13 302);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.62 0.17 264);
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.145 0 0);
-  --success: oklch(0.62 0.14 145);
-  --success-foreground: oklch(0.145 0 0);
-  --warning: oklch(0.68 0.15 80);
-  --warning-foreground: oklch(0.145 0 0);
-  --info: oklch(0.65 0.14 230);
-  --info-foreground: oklch(0.145 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.62 0.17 264);
-  --chart-1: oklch(0.62 0.17 264);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.62 0.17 264);
-  --sidebar-primary-foreground: oklch(0.145 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.62 0.17 264);
+  --background: oklch(0.15 0.006 55);
+  --foreground: oklch(0.95 0.01 80);
+  --card: oklch(0.205 0.012 50);
+  --card-foreground: oklch(0.95 0.01 80);
+  --popover: oklch(0.205 0.012 50);
+  --popover-foreground: oklch(0.95 0.01 80);
+  --primary: oklch(0.72 0.1 87);
+  --primary-foreground: oklch(0.16 0.02 60);
+  --secondary: oklch(0.27 0.025 50);
+  --secondary-foreground: oklch(0.92 0.015 75);
+  --muted: oklch(0.245 0.014 50);
+  --muted-foreground: oklch(0.68 0.02 70);
+  --accent: oklch(0.3 0.028 55);
+  --accent-foreground: oklch(0.93 0.015 78);
+  --destructive: oklch(0.66 0.2 25);
+  --destructive-foreground: oklch(0.15 0 0);
+  --success: oklch(0.65 0.13 150);
+  --success-foreground: oklch(0.15 0 0);
+  --warning: oklch(0.72 0.14 55);
+  --warning-foreground: oklch(0.15 0.01 55);
+  --info: oklch(0.68 0.12 250);
+  --info-foreground: oklch(0.15 0 0);
+  /* Same distinct-from-info sky hue as :root, brightened to read clearly
+   * against the dark charcoal surfaces (see :root's --sky comment). */
+  --sky: oklch(0.72 0.09 215);
+  --sky-foreground: oklch(0.15 0.02 215);
+  --border: oklch(1 0.015 80 / 11%);
+  --input: oklch(1 0.015 80 / 15%);
+  --ring: oklch(0.72 0.1 87);
+  --chart-1: oklch(0.72 0.1 87);
+  --chart-2: oklch(0.65 0.05 60);
+  --chart-3: oklch(0.55 0.03 55);
+  --chart-4: oklch(0.42 0.02 55);
+  --chart-5: oklch(0.3 0.015 55);
+  --shadow-color: 50 40% 2%;
+  /* Deeper than --background (0.15) for real separation -- the sidebar
+   * should read as the darkest surface in the app, not the same charcoal
+   * as everything else. */
+  --sidebar: oklch(0.105 0.008 50);
+  --sidebar-foreground: oklch(0.9 0.012 75);
+  --sidebar-primary: oklch(0.72 0.1 87);
+  --sidebar-primary-foreground: oklch(0.16 0.02 60);
+  --sidebar-accent: oklch(0.72 0.1 87 / 14%);
+  --sidebar-accent-foreground: oklch(0.8 0.09 87);
+  --sidebar-border: oklch(1 0.015 80 / 8%);
+  --sidebar-ring: oklch(0.72 0.1 87);
 }
 
 @layer base {
@@ -157,5 +194,23 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/*
+ * Respects the OS-level "reduce motion" preference app-wide: every
+ * transition/animation (including the Radix/tw-animate-css enter-exit
+ * animations already used by dialogs, dropdowns, tooltips, and the
+ * sidebar's own collapse transition) collapses to functionally instant,
+ * rather than requiring every individual component to opt in.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

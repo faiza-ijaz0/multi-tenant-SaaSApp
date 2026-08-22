@@ -5,6 +5,12 @@
 export interface AuthenticatedUserContext {
   id: string;
   email: string | null;
+  /** From the JWT's user_metadata.full_name, set at signup (see
+   * lib/auth/customer-auth-actions.ts) -- best-effort display name, not an
+   * authorization input. null when never set (e.g. accounts created before
+   * this field existed, or via the admin-created-member RPC path, which
+   * writes full_name straight to profiles instead). */
+  fullName: string | null;
 }
 
 /** Mirrors the memberships.role check constraint (0001_initial_schema.sql). */

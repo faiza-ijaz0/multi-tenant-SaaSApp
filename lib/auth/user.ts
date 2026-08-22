@@ -27,8 +27,15 @@ export async function getAuthenticatedUser(
     throw new UnauthenticatedError();
   }
 
+  const metadata = data.claims.user_metadata;
+  const fullName =
+    metadata && typeof metadata === "object" && "full_name" in metadata && typeof metadata.full_name === "string"
+      ? metadata.full_name
+      : null;
+
   return {
     id: data.claims.sub,
     email: typeof data.claims.email === "string" ? data.claims.email : null,
+    fullName,
   };
 }

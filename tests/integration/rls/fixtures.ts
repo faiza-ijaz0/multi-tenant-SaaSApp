@@ -74,13 +74,30 @@ export async function setupFixtures(): Promise<RlsFixtures> {
 }
 
 async function buildFixtures(identityIds: string[], orgIds: string[]): Promise<RlsFixtures> {
-  const [ownerA, ownerB, customerA, customerB] = await Promise.all([
+  // Promise.allSettled, not Promise.all: under real network/API strain one
+  // of the four creations can reject while the others already succeeded.
+  // With Promise.all, that rejection skips the identityIds.push() below
+  // entirely (it only runs after *all four* resolve), silently leaking the
+  // ones that did succeed -- observed in practice as orphaned test users
+  // during heavy Phase 5 test-suite usage. Settling first means every
+  // successful identity is registered for cleanup regardless of whether a
+  // sibling call failed.
+  const settled = await Promise.allSettled([
     createTestIdentity("org-a-owner"),
     createTestIdentity("org-b-owner"),
     createTestIdentity("org-a-customer"),
     createTestIdentity("org-b-customer"),
   ]);
-  identityIds.push(ownerA.id, ownerB.id, customerA.id, customerB.id);
+  for (const result of settled) {
+    if (result.status === "fulfilled") identityIds.push(result.value.id);
+  }
+  const rejected = settled.find((result) => result.status === "rejected");
+  if (rejected && rejected.status === "rejected") {
+    throw rejected.reason;
+  }
+  const [ownerA, ownerB, customerA, customerB] = settled.map(
+    (result) => (result as PromiseFulfilledResult<TestIdentity>).value,
+  );
 
   const [clientOwnerA, clientOwnerB, clientCustomerA, clientCustomerB] = await Promise.all([
     signInAs(ownerA),

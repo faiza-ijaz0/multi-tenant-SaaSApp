@@ -23,8 +23,9 @@ Defined in `.env.example` (names only, no real values committed). Real values go
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | `SignalBoard Development` Supabase project → Project Settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same page — the `anon`/publishable key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Same page — the `service_role` secret key. Server-only; used only by `lib/supabase/service-role.ts` for admin-only account operations. Also required in `.env.test.local` to run `pnpm test:integration`. |
 
-Both are safe to expose to the browser: Row Level Security, not key secrecy, is what enforces authorization. Never put a service-role key in a `NEXT_PUBLIC_*` variable, and never commit `.env.local`.
+The first two are safe to expose to the browser: Row Level Security, not key secrecy, is what enforces authorization. The service-role key is not — never put it in a `NEXT_PUBLIC_*` variable, and never commit `.env.local` or `.env.test.local`.
 
 ## Other checks
 

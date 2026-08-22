@@ -6,10 +6,10 @@ import {
   OrganizationAccessDeniedError,
   OrganizationNotFoundError,
 } from "./errors";
+import { ensureProfileExists } from "./profile";
 import { generateSlug, SLUG_MAX_LENGTH } from "./slug";
 import type { OrganizationContext, OrganizationMembership, OrganizationRole } from "./types";
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from "@/lib/uuid";
 
 interface MembershipRow {
   id: string;
@@ -77,7 +77,7 @@ export async function resolveOrganizationContext(
   requestedOrganizationId?: string | null,
 ): Promise<OrganizationContext> {
   if (requestedOrganizationId !== undefined && requestedOrganizationId !== null) {
-    if (!UUID_PATTERN.test(requestedOrganizationId)) {
+    if (!isUuid(requestedOrganizationId)) {
       throw new InvalidOrganizationContextError();
     }
   }
@@ -190,12 +190,7 @@ export async function createOrganizationForUser(
     throw new Error("Organization name must not be blank.");
   }
 
-  const { error: profileError } = await supabase
-    .from("profiles")
-    .upsert({ id: userId }, { onConflict: "id", ignoreDuplicates: true });
-  if (profileError) {
-    throw new Error(`Failed to prepare profile for organization creation: ${profileError.message}`);
-  }
+  await ensureProfileExists(supabase, userId);
 
   const organizationId = randomUUID();
   const { error: organizationError } = await supabase
