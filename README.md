@@ -2,6 +2,14 @@
 
 A multi-tenant customer feedback platform. Organizations get an isolated workspace, a branded public feedback portal, role-based team management, and analytics — all on a single shared Postgres database secured end-to-end by Supabase Row Level Security.
 
+## Live Demo
+
+https://multi-tenant-saas-agljaxk9l-faiza-ijaz0s-projects.vercel.app/
+
+## GitHub Repository
+
+https://github.com/faiza-ijaz0/multi-tenant-SaaSApp
+
 ---
 
 ## Table of contents
