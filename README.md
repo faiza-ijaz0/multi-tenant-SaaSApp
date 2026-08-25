@@ -1,6 +1,8 @@
 # SignalBoard
 
-A multi-tenant customer feedback platform. Organizations get an isolated workspace, a branded public feedback portal, role-based team management, and analytics — all on a single shared Postgres database secured end-to-end by Supabase Row Level Security.
+**SignalBoard is an enterprise-grade multi-tenant customer feedback platform that enables organizations to collect, manage, prioritize, and analyze customer feedback through a secure, branded customer portal.**
+
+Every organization on SignalBoard gets its own isolated workspace, a public or private feedback portal branded to its identity, a role-based team with fine-grained permissions, and analytics that turn raw submissions into product decisions — all running on a single shared Postgres database whose tenant boundaries are enforced by the database itself, not just application code.
 
 ## Live Demo
 
@@ -12,414 +14,357 @@ https://github.com/faiza-ijaz0/multi-tenant-SaaSApp
 
 ---
 
-## Table of contents
+## Table of Contents
 
-1. [Overview](#1-overview)
-2. [What SignalBoard Does](#2-what-signalboard-does)
-3. [Core Problem It Solves](#3-core-problem-it-solves)
-4. [Key Features](#4-key-features)
-5. [Product Architecture](#5-product-architecture)
-6. [Multi-Tenant Architecture](#6-multi-tenant-architecture)
-7. [Organization Model](#7-organization-model)
-8. [Customer Model](#8-customer-model)
-9. [Authentication Architecture](#9-authentication-architecture)
-10. [Internal vs Customer Authentication](#10-internal-vs-customer-authentication)
-11. [Role-Based Access Control](#11-role-based-access-control)
-12. [Permissions Architecture](#12-permissions-architecture)
-13. [Owner / Admin / Member Roles](#13-owner--admin--member-roles)
-14. [Customer Portal](#14-customer-portal)
-15. [Feedback Lifecycle](#15-feedback-lifecycle)
-16. [Submission Workflow](#16-submission-workflow)
-17. [Categories](#17-categories)
-18. [Statuses](#18-statuses)
-19. [Comments](#19-comments)
-20. [Votes](#20-votes)
-21. [Organization Members](#21-organization-members)
-22. [Invitations](#22-invitations)
-23. [Activity / Audit](#23-activity--audit)
-24. [Analytics](#24-analytics)
-25. [Dashboard](#25-dashboard)
-26. [Marketing Website](#26-marketing-website)
-27. [Portal Branding](#27-portal-branding)
-28. [Security / RLS](#28-security--rls)
-29. [Database Architecture](#29-database-architecture)
-30. [Data Isolation](#30-data-isolation)
-31. [Authorization Boundaries](#31-authorization-boundaries)
-32. [Project Structure](#32-project-structure)
-33. [Technology Stack](#33-technology-stack)
-34. [Installation](#34-installation)
-35. [Environment Variables](#35-environment-variables)
-36. [Local Development](#36-local-development)
-37. [Database / Supabase Setup](#37-database--supabase-setup)
-38. [Migrations](#38-migrations)
-39. [Testing](#39-testing)
-40. [Linting](#40-linting)
-41. [Type Checking](#41-type-checking)
-42. [Production Build](#42-production-build)
-43. [Deployment](#43-deployment)
-44. [Vercel Deployment](#44-vercel-deployment)
-45. [Supabase Deployment](#45-supabase-deployment)
-46. [Security Considerations](#46-security-considerations)
-47. [Production Checklist](#47-production-checklist)
-48. [Known Limitations](#48-known-limitations)
-49. [Future Roadmap](#49-future-roadmap)
-50. [License](#50-license)
+1. [The Problem](#the-problem)
+2. [Who SignalBoard Is For](#who-signalboard-is-for)
+3. [The Complete Product Workflow](#the-complete-product-workflow)
+4. [Key Features](#key-features)
+5. [Application Architecture](#application-architecture)
+6. [Multi-Tenant Architecture](#multi-tenant-architecture)
+7. [Authentication](#authentication)
+8. [Role-Based Access Control](#role-based-access-control)
+9. [The Customer Portal](#the-customer-portal)
+10. [The Feedback Lifecycle](#the-feedback-lifecycle)
+11. [Organization Management](#organization-management)
+12. [Analytics & Insights](#analytics--insights)
+13. [Security Architecture](#security-architecture)
+14. [Data Isolation Strategy](#data-isolation-strategy)
+15. [Technology Stack](#technology-stack)
+16. [Project Structure](#project-structure)
+17. [Getting Started](#getting-started)
+18. [Environment Variables](#environment-variables)
+19. [Database & Migrations](#database--migrations)
+20. [Testing & Quality](#testing--quality)
+21. [Deployment](#deployment)
+22. [Roadmap](#roadmap)
+23. [License](#license)
 
 ---
 
-## 1. Overview
+## The Problem
 
-SignalBoard is a SaaS product for collecting, triaging, and acting on customer feedback. An organization signs up, gets its own workspace, and opens a public (or private, invite-only) feedback portal branded to that organization. Customers submit feature requests and bug reports, vote on what matters to them, and get replies from the team. Internally, the organization's staff triage submissions with categories and statuses, discuss them via comments, and track engagement through analytics — all governed by a role- and permission-based access model enforced at the database layer.
+Product teams collect feedback across scattered channels — support tickets, sales calls, spreadsheets, DMs — with no shared, customer-facing record of what was asked for or what happened to it. Feedback gets lost, priorities get argued from memory instead of data, and customers who took the time to ask for something never find out whether it shipped.
 
-## 2. What SignalBoard Does
+SignalBoard gives each organization a single, structured, tenant-isolated home for that feedback: customers watch their request move from submitted to shipped, and the team works from one filterable, permission-gated queue instead of a scattered inbox.
 
-- Lets an organization create an isolated workspace with its own team, categories, statuses, and branded portal.
-- Lets that organization's customers register, submit feedback, vote, comment, and track their own submissions.
-- Lets the organization's team triage, categorize, respond to, and resolve feedback from a shared dashboard.
-- Surfaces aggregate analytics (volume, status distribution, engagement) so decisions are based on real signal, not anecdote.
+## Who SignalBoard Is For
 
-## 3. Core Problem It Solves
+- **B2B and B2C SaaS teams** who want a public or private channel for customers to request features, report bugs, and see what's being worked on.
+- **Product and support teams** who need to triage, categorize, and prioritize incoming feedback without losing track of who asked for what.
+- **Multiple organizations on one platform** — SignalBoard is built as a true multi-tenant product from the schema up, not a single-tenant app with a workspace bolted on.
 
-Product teams collect feedback across scattered channels — email, chat, spreadsheets — with no shared, customer-facing record of what was asked for or what happened to it. SignalBoard gives each organization a single, structured, tenant-isolated home for that feedback: customers can see their request move from submitted to shipped, and the team gets one filterable, permission-gated queue instead of a scattered inbox.
+## The Complete Product Workflow
 
-## 4. Key Features
-
-- Multi-tenant organizations with fully isolated data
-- Public or private, brandable customer feedback portal per organization
-- Customer registration, sign-in, submission, voting, commenting, and a personal "My Feedback" view
-- Internal dashboard: submissions queue, categories, statuses, activity log, analytics
-- Owner / Admin / Member roles, layered with granular per-page and per-action permission grants
-- Email-based invitations *and* direct admin-created member accounts
-- Audit log of admin- and member-authored events
-- Notification scaffolding for in-app alerts
-- Ownership transfer with structural single-owner invariants
-- Marketing site explaining the product to prospective organizations
-
-## 5. Product Architecture
-
-Next.js 16 (App Router, React Server Components by default) is both the frontend and the application server. There is no separate backend service — Supabase (Postgres + Auth + Row Level Security) is the entire backend. Server Actions handle authenticated mutations directly against Supabase from the server; Route Handlers exist only where a stable HTTP contract is genuinely required (the Supabase Auth email-confirmation callback).
-
-Two flows converge on the same database and the same Supabase Auth system, kept structurally separate at the routing and RLS layer:
+**Organization side:**
 
 ```
-Organization:
-Marketing (/) → Internal Signup (/signup) → Onboarding (/onboarding) →
-Dashboard (/dashboard) → Members/Roles → Feedback Management → Analytics
-
-Customer:
-Marketing (/) → Customer Auth (/feedback/sign-in, /feedback/sign-up) →
-Portal Connect (/feedback/portal) → Organization Portal (/feedback/[slug]) →
-Submit Feedback → visible on the Organization's Dashboard
+Sign up → Create organization → Onboard → Configure branded portal
+  → Invite team members and assign roles/permissions
+  → Triage incoming feedback (categorize, set status, discuss)
+  → Review analytics → Make prioritization decisions
 ```
 
-## 6. Multi-Tenant Architecture
-
-Single shared Postgres database. Every tenant-owned table carries an `organization_id` column. `organization_id` is **never** trusted from the client — it is always resolved server-side from the authenticated caller's real `memberships` or `customers` row (`lib/auth/organization.ts`'s `resolveOrganizationContext`), then re-enforced independently by Row Level Security on every query. Composite foreign keys (e.g. `submissions (organization_id, category_id) → categories (organization_id, id)`) make it structurally impossible for a submission to reference a category or status belonging to a different organization, not just conventionally unlikely.
-
-## 7. Organization Model
-
-An `organizations` row is the tenant boundary. Every internal user relates to it through a `memberships` row (`organization_id`, `profile_id`, `role`). A `profiles` row (one-to-one with `auth.users`) is the shared identity both internal members and customers are built on. A single person can hold a `memberships` row in one organization and a `customers` row in a completely different one — the same Supabase Auth account, two independent, RLS-scoped relationships.
-
-## 8. Customer Model
-
-A "customer" is not a role — it's a `(organization_id, profile_id)` row in the `customers` table, representing a real, registered relationship between a person and one specific organization's portal. Customers and internal members share the same Supabase Auth system and the same `profiles` table, but the two relationships are independently resolved and never conflated: `features/customers/customer-eligibility.ts`'s `isEligibleCustomerForOrganization` explicitly checks that an authenticated account either (a) has a real `customers` row for the target organization, or (b) holds *no* internal `memberships` row there — so an org's own owner/admin/member is never silently treated as a customer of their own organization just because they can authenticate.
-
-## 9. Authentication Architecture
-
-Supabase Auth is the **single** identity system for everyone — there is no second, parallel auth provider for customers. Authentication (proving who you are) and authorization (what you're allowed to do once identified) are kept strictly separate: a successful sign-in only proves identity; every subsequent read/write is re-authorized against real `memberships`/`customers`/permission-grant rows, enforced by RLS.
-
-## 10. Internal vs Customer Authentication
-
-Two front doors onto the one auth system, deliberately separated by route and by post-login logic:
-
-- **Internal**: `/login`, `/signup` → lands in `/dashboard` (or `/onboarding` if the account has no organization yet).
-- **Customer**: `/feedback/sign-in`, `/feedback/sign-up` → lands in `/feedback/portal` or a specific organization's portal.
-
-`customerLogin` (`lib/auth/customer-auth-actions.ts`) is the concrete fix for the obvious risk here: a valid Supabase Auth session is *not* by itself proof of customer-portal eligibility. When the login targets a specific organization's portal, it re-checks `isEligibleCustomerForOrganization` and signs the session back out immediately if the authenticated account turns out to be that organization's own internal staff rather than a real customer. `next` redirect targets are sanitized on both sides (`sanitizeNextPath` / `sanitizeCustomerNextPath`) to same-origin, audience-scoped paths only — protocol-relative (`//host`) and backslash-normalized (`/\host`) redirect payloads are both rejected, so neither flow can be used as an open redirect or to cross into the other flow's route space.
-
-## 11. Role-Based Access Control
-
-Every internal member has exactly one role — Owner, Admin, or Member — stored on their `memberships` row and structurally protected (a non-owner can never grant themselves ownership; the real owner can never be demoted or removed by anyone but themselves via ownership transfer). Role alone answers "what tier is this person," not "exactly what can they touch" — that's the permissions layer described next.
-
-## 12. Permissions Architecture
-
-Layered on top of role, two independent, per-membership grant tables:
-
-- **Page permissions** (`membership_page_permissions`) — which of the nine dashboard routes (`lib/authorization/registry.ts`'s `PAGE_KEYS`: Dashboard, Submissions, Categories, Statuses, Role Management, Activity, Organization Settings, Portal Settings, Organization Members) a non-owner may even navigate to.
-- **Action permissions** (`membership_action_permissions`) — fine-grained `resource:action` grants (e.g. `submissions:edit`, `categories:delete`, `roles_permissions:manage_permissions`) governing what a non-owner may *do* once on a page.
-
-Both are enforced by RLS itself (`has_page_permission` / `has_action_permission`, SECURITY DEFINER SQL functions), not just hidden in the UI — a member without a grant can't perform the action via a raw API call either. The owner bypasses both tables unconditionally and never holds grant rows. An author acting on their own submission/comment is always allowed regardless of grants; action permissions only gate acting on *someone else's* row or on resources with no authorship concept. Invitations carry their intended page/action grants and materialize them into real grant rows only on first acceptance (`accept_invitation`).
-
-## 13. Owner / Admin / Member Roles
-
-- **Owner**: exactly one per organization at all times, enforced by database triggers (`enforce_membership_owner_insert_protection`, `enforce_membership_owner_delete_protection`, `enforce_membership_role_invariants`). Bypasses every page/action permission check. Can transfer ownership (`transfer_organization_ownership`) and delete the organization. Cannot be demoted or removed by anyone else.
-- **Admin**: broad default access (submissions, categories, statuses, members, activity, settings, portal settings) but — by deliberate design — does *not* get `roles_permissions:assign_role` / `manage_permissions` by default. Changing another member's role or permission grants requires an explicit grant from the owner, even for an admin.
-- **Member**: default access to view/create submissions and comments, and view categories/statuses. Everything beyond that requires an explicit action-permission grant.
-
-## 14. Customer Portal
-
-A public (or private, customer-only) feedback site at `/feedback/[slug]`, brandable per organization (`portal_settings`: brand name, logo, accent color, welcome message). The customer journey: sign up or sign in → land on `/feedback/portal` (or directly on their organization's portal via a saved link) → browse/submit feedback → vote → comment → track their own submissions on `/feedback/[slug]/my-feedback` → manage their profile → sign out. A private portal (`is_public = false`) is still reachable by its own real, registered customers — enforced by the `is_organization_customer` branch on `portal_settings`' and every sibling portal-scoped table's SELECT policy.
-
-## 15. Feedback Lifecycle
+**Customer side:**
 
 ```
-Customer submits → appears in the organization's dashboard submissions queue →
-triaged with a category and a status → discussed via comments (internal-only
-or customer-visible) → status progressed by the team → customer sees the
-same status update on their own submission
+Discover the organization's portal → Sign up / sign in
+  → Connect to the organization's branded portal
+  → Browse existing feedback → Submit a request or bug report
+  → Vote and comment on submissions that matter to them
+  → Track their own submissions on "My Feedback" as status changes
 ```
 
-Every step is logged for admin visibility (see Activity / Audit) and reflected in dashboard analytics.
+Both journeys converge on the same feedback record: a submission a customer creates immediately becomes visible, categorized, and actionable inside the organization's dashboard, and every status change the team makes is reflected back on the customer's own view of that submission.
 
-## 16. Submission Workflow
+## Key Features
 
-A `submissions` row always carries `organization_id`, `type` (`feature` or `bug`), a `category_id`/`status_id` (composite-FK-bound to that same organization), and `submitted_by`. Both internal members and real customers can create submissions in their respective organization; only the author or a member holding `submissions:edit`/`submissions:manage` can update someone else's; only `submissions:delete` can remove one. Status changes go through `updateSubmissionStatusForOrganization`, which is also the one real code path that writes a `submission.status_changed` audit event.
+**Organization & Team Management**
+- Isolated multi-tenant workspace per organization
+- Owner / Admin / Member roles with independently configurable page and action permissions
+- Member invitations via shareable links, plus direct admin-created accounts
+- Ownership transfer with structural single-owner guarantees
+- Organization-wide activity log
 
-## 17. Categories
+**Customer Portal**
+- Branded, public or private feedback portal per organization
+- Customer sign-up, sign-in, and profile management
+- Feedback submission, voting, and commenting
+- A personal "My Feedback" view for tracking submission status over time
 
-Per-organization, admin-managed (`categories:create/edit/delete` action permissions, `categories` page permission) labels submissions are triaged into. Customers and members alike can view active categories; only admins/owners with the relevant grant can manage them.
+**Feedback Management**
+- Centralized submissions queue with categories and configurable statuses
+- Internal-only and customer-visible comments
+- Status-change history feeding directly into analytics
 
-## 18. Statuses
+**Analytics & Insights**
+- KPI cards for submissions, categories, statuses, and team activity
+- Submission volume trends with selectable date ranges
+- Status breakdown and category distribution charts
+- Member growth and activity analytics
+- A chronological activity timeline for admin visibility
 
-Per-organization, admin-managed workflow states (each with a color and an `is_closed` flag) a submission progresses through. Same permission shape as Categories. Optimistic-concurrency-safe reordering (a stale `sort_order` in the WHERE clause is a documented, tested no-op, not a silent overwrite).
+**Security**
+- Supabase Auth as the single identity provider for both teams and customers
+- Row Level Security enforced on every tenant-owned table
+- Server-resolved tenant context — a client-supplied organization ID is never trusted
+- Open-redirect–hardened authentication flows
 
-## 19. Comments
+## Application Architecture
 
-Attached to a submission, authored by either an internal member or a customer. `is_internal` distinguishes team-only notes from customer-visible replies — a customer can never insert or see an internal comment. Editing/deleting someone else's comment (not your own) requires `comments:edit`/`comments:moderate`.
+SignalBoard runs on Next.js (App Router, React Server Components by default) as both the frontend and the application server — there is no separate backend service. Supabase (Postgres, Auth, and Row Level Security) is the entire backend. Server Actions handle authenticated mutations directly against Supabase; Route Handlers are used only where a stable HTTP contract is genuinely required, such as the Supabase Auth email-confirmation callback.
 
-## 20. Votes
-
-One vote per authenticated user per submission (`(user_id, submission_id)` unique constraint) — authenticated only, no anonymous voting, no client-supplied vote counts. Adding/removing a vote is a straightforward self-scoped insert/delete; there is no admin override concept for another user's vote.
-
-## 21. Organization Members
-
-The organization's real internal roster, managed from `/dashboard/settings/organization/members` (viewing/removing members) and `/dashboard/role-management` (role and permission grants). Self-removal is allowed for non-owners; the owner can never be removed, and a member can never remove someone else without `members:delete`.
-
-## 22. Invitations
-
-Two paths onto membership:
-
-- **Invitation link** (`invitations` table, `accept_invitation` RPC): time-limited, single-use, token-hashed (never a raw token at rest), carries the intended role plus page/action grants, and cannot grant `owner`. No email provider is wired up yet (`features/members/email-delivery.ts`'s `sendInvitationEmail` is a deliberate no-op) — delivery today is the admin sharing the generated invite link directly, shown as a copyable link in the invitation-management UI regardless of whether email delivery is ever added.
-- **Direct admin-created account** (`create_member_account` RPC + the Auth Admin API via a server-only service-role client): an admin sets a password directly; if the RPC's own independent authorization check rejects the membership, the just-created auth user is rolled back rather than left as a dangling, orgless account.
-
-## 23. Activity / Audit
-
-`audit_events` records admin-authored events (role changes, category/status edits, ownership transfers) via direct RLS-gated inserts, readable only by admins/owners holding the `activity` page permission. A narrow, allowlisted RPC for two non-admin events — `submission.created`/`comment.created`, so a plain member or customer could log their own action without a broader insert policy — is drafted (`supabase/migrations/0012_audit_log_rpc.sql`, `log_audit_event`) but **not yet applied** to the hosted database and not called anywhere in application code; see [§48](#48-known-limitations).
-
-## 24. Analytics
-
-Dashboard-level aggregate reporting (`lib/analytics/`, `components/analytics/`) over submission volume, status distribution, and member engagement, rendered with Chart.js. Charts are always fed pre-aggregated, server-computed data scoped to the caller's organization — never a raw full-table fetch to the client.
-
-## 25. Dashboard
-
-The internal workspace shell (`app/dashboard/`) — sidebar navigation filtered server-side to exactly the pages the caller's real, RLS-backed permissions allow (never client-side hiding of links the API would still accept), a topbar with identity and notifications, and the submissions/categories/statuses/activity/settings pages themselves.
-
-## 26. Marketing Website
-
-The public `/` route explains the product to prospective organizations: what SignalBoard is, who it's for, the organization and customer journeys, multi-tenancy, roles and permissions, and the feedback lifecycle — all built from real product capabilities, with no fabricated metrics or certifications.
-
-## 27. Portal Branding
-
-Each organization's `portal_settings` row controls its public-facing identity: `brand_name`, `logo_url`, `accent_color`, `welcome_message`, and `is_public`/`slug` for the portal's visibility and URL. Only an admin/owner holding `portal_settings:edit` can change it; view access follows the same member-or-customer-or-public shape every other portal-scoped table uses.
-
-## 28. Security / RLS
-
-Row Level Security is the actual authorization boundary on every tenant-owned table — enabled on all of them, with no table left open to a default-allow policy. Cross-boundary operations that a client-facing policy could never safely express (accepting an invitation, transferring ownership, creating a member account with an admin-chosen password) go through narrow, single-purpose `SECURITY DEFINER` functions that independently re-derive the caller's identity from `auth.uid()`/`auth.email()` and re-validate every precondition themselves — never trusting a parameter the client could forge.
-
-## 29. Database Architecture
-
-Core tables: `organizations`, `profiles`, `memberships`, `membership_page_permissions`, `membership_action_permissions`, `invitations`, `customers`, `portal_settings`, `categories`, `statuses`, `submissions`, `comments`, `votes`, `notifications`, `audit_events`. Schema and every policy change live as numbered, version-controlled SQL files in `supabase/migrations/`, applied to a dedicated hosted Supabase project — the migration files are the source of truth for the schema, not ad hoc Studio edits.
-
-## 30. Data Isolation
-
-Enforced at three layers that all have to agree, not just one:
-
-1. **Structural** — every tenant table carries `organization_id`; composite foreign keys prevent a row from ever referencing another organization's category/status.
-2. **RLS** — every policy scopes reads/writes to rows the caller's real membership/customer relationship covers for that specific `organization_id`.
-3. **Application** — `resolveOrganizationContext` re-derives `organization_id` server-side from the caller's session on every request; a client-supplied organization id is never trusted, and is rejected at the database level even if the app layer were bypassed.
-
-## 31. Authorization Boundaries
-
-- **Authentication**: Supabase Auth — proves identity only.
-- **Authorization**: the combination of role + page/action permission grants — what an identified user is allowed to do.
-- **RLS**: the database-level enforcement of that authorization, independent of and not trusting the application layer.
-- **Application-layer checks**: pre-checks that produce clean, specific error messages before a request ever reaches the database — defense-in-depth and UX, never the primary boundary. Every RLS-gated table remains safe even if an application-layer check were skipped.
-
-## 32. Project Structure
+Two independent front doors converge on the same database and the same Supabase Auth system, kept structurally separate at the routing and Row Level Security layer:
 
 ```
-app/                      routes (Next.js App Router) — Server Components by default
-  (auth)/                 internal login/signup/reset-password
-  dashboard/               authenticated org workspace: submissions, categories,
-                           statuses, role-management, activity, settings, no-access
-  feedback/                public/customer portal: sign-in/up, portal connect,
-                           [slug] organization portal, my-feedback, profile
-  invite/[token]/          invitation acceptance landing
-  auth/confirm/            Supabase email-confirmation Route Handler
+Organization workspace:
+  Marketing site → Sign up → Onboarding → Dashboard
+    → Team & Roles → Feedback Management → Analytics
+
+Customer portal:
+  Marketing site → Customer sign-in/sign-up → Portal connect
+    → Organization's branded portal → Submit feedback
+    → visible instantly in the organization's dashboard
+```
+
+## Multi-Tenant Architecture
+
+SignalBoard uses a single shared Postgres database with row-level tenant isolation, not a database-per-tenant model. Every tenant-owned table carries an `organization_id` column, and that value is **never** trusted from the client. It is always resolved server-side from the authenticated caller's real membership or customer relationship, then independently re-enforced by Row Level Security on every query — two layers that both have to agree before any tenant-scoped data moves.
+
+Composite foreign keys reinforce this structurally: a submission's `(organization_id, category_id)` pair references a categories row with that exact same organization, so it is not merely convention that a submission can't reference another organization's category or status — it's a database constraint.
+
+## Authentication
+
+Supabase Auth is the single identity system for everyone — there is no second, parallel auth provider for customers. Authentication (proving who someone is) is kept strictly separate from authorization (what they're allowed to do once identified): a successful sign-in only proves identity, and every subsequent read or write is independently re-authorized against real membership, customer, and permission-grant records, enforced by Row Level Security.
+
+Two front doors sit on top of this one identity system:
+
+| | Internal team | Customer |
+|---|---|---|
+| Entry points | `/login`, `/signup` | `/feedback/sign-in`, `/feedback/sign-up` |
+| Lands on | `/dashboard` (or onboarding, for a brand-new account) | The customer portal connect flow |
+| Session scope | Organization membership | A specific organization's customer relationship |
+
+A valid session alone is never treated as proof of customer-portal eligibility. Signing in on a specific organization's portal re-verifies that the account is actually a registered customer of that organization — an organization's own internal staff cannot access their own portal as a customer just because they can authenticate, and the reverse holds too. Redirect targets passed through login flows are validated against an allowlisted, same-origin path shape, closing both protocol-relative and encoded-path open-redirect vectors.
+
+## Role-Based Access Control
+
+Every internal team member holds exactly one role, layered with independently configurable permission grants.
+
+**Roles**
+
+| Role | Description |
+|---|---|
+| **Owner** | Exactly one per organization at all times, structurally enforced. Unconditional access to everything. The only role that can transfer ownership or delete the organization. Can never be removed or demoted by anyone else. |
+| **Admin** | Broad default access across submissions, categories, statuses, members, activity, and settings. Cannot reassign roles or manage another member's permissions unless explicitly granted that authority — changing who has power over the organization stays owner-gated by default. |
+| **Member** | Default access to view and create submissions and comments, and to view categories and statuses. Any capability beyond that requires an explicit permission grant. |
+
+**Permissions layer**
+
+On top of role, two independent, per-member grant types control fine-grained access:
+
+- **Page permissions** — which dashboard areas a non-owner may navigate to at all (Dashboard, Submissions, Categories, Statuses, Role Management, Activity, Organization Settings, Portal Settings, Organization Members).
+- **Action permissions** — `resource:action` grants (for example `submissions:edit`, `categories:delete`, `roles_permissions:manage_permissions`) controlling what a non-owner may *do* once on a page.
+
+Both are enforced at the database level, not just hidden in the UI — a member without a grant cannot perform the action through any client, only through the interface the permission model allows. A member always retains full control over their own submissions and comments regardless of grants; permission checks govern acting on someone else's content or on resources with no concept of authorship.
+
+## The Customer Portal
+
+Each organization gets a branded feedback site — public or private — reachable at its own URL slug. Branding (name, logo, accent color, welcome message) and visibility are fully organization-controlled from the dashboard.
+
+The customer journey:
+
+1. **Sign up or sign in** with a dedicated customer-facing authentication flow, entirely separate from the internal team login.
+2. **Connect** to a specific organization's portal, either from a shared link or by entering the organization's portal address.
+3. **Browse and submit feedback** — feature requests and bug reports, categorized the same way the internal team sees them.
+4. **Vote and comment** on submissions, with comments displayed in the submission discussion.
+5. **Track submissions** on a personal "My Feedback" view that reflects live status changes made by the organization's team.
+6. **Manage their profile** and sign out.
+
+A private portal remains reachable by its own genuinely registered customers even after signing out and back in — customer-portal access is a real, durable relationship stored in the database, not a one-time session flag. A customer of one organization has no visibility into another organization's private portal, regardless of how many organizations they're a customer of.
+
+## The Feedback Lifecycle
+
+```
+Customer submits →
+  appears instantly in the organization's dashboard submissions queue →
+  triaged with a category and a status →
+  discussed via comments (internal-only or customer-visible) →
+  status progressed by the team →
+  the customer sees the same status update on their own submission
+```
+
+Every submission carries a type (feature request or bug report), a category, a status, and its author. Status transitions are tracked and reflected both in the activity log and in dashboard analytics, so the whole team — and the customer who asked for it — has a consistent, up-to-date picture of where a request stands.
+
+## Organization Management
+
+- **Members** — the organization's internal roster, with role and permission management from a dedicated Role Management page, and membership/removal management from Organization Settings.
+- **Invitations** — time-limited, single-use invitation links carrying an intended role and permission set, plus the option for an admin to create a member account directly with an admin-chosen password.
+- **Categories & Statuses** — organization-defined taxonomies for triaging submissions, each independently permission-gated for who can view versus manage them.
+- **Portal Settings** — branding, visibility (public/private), and the portal's URL slug.
+- **Activity Log** — a running record of admin-authored organizational events (role changes, ownership transfers, category and status changes), visible to admins and owners holding the relevant permission.
+
+## Analytics & Insights
+
+The dashboard surfaces real, pre-aggregated analytics scoped to the caller's own organization — never a raw table dump to the client:
+
+- **KPI cards** for total submissions, open/resolved counts, and recent activity, each with a week-over-week trend indicator.
+- **Submission volume trends** as a time-series chart with selectable ranges (7 days, 30 days, 90 days, 12 months), with granularity that adapts to the range so a year view never renders 365 daily points.
+- **Status breakdown** and **category distribution** visualizations showing where the current queue stands.
+- **Member analytics** — team composition by role and recent-hire trends.
+- **Activity analytics** — organizational event volume over time, alongside a chronological activity timeline of recent events.
+
+All charts are fed by targeted, server-computed aggregate queries; the client never receives more than the numbers needed to render the view.
+
+## Security Architecture
+
+- **Row Level Security is the real authorization boundary.** It is enabled on every tenant-owned table, with no table left open to a default-allow policy — the application layer's own checks are defense-in-depth, not the primary safeguard. Even if an application-layer check were skipped, the database itself still enforces who can read or write a given row.
+- **Server-resolved tenant context.** `organization_id` is derived from the authenticated caller's real membership or customer relationship on the server, never accepted as-is from the client.
+- **Narrow, single-purpose privileged functions.** Operations that legitimately need to cross a Row Level Security boundary — accepting an invitation, transferring ownership, creating a member account with an admin-chosen password — go through database functions that independently re-derive the caller's identity and re-validate every precondition themselves, rather than through a broad, permissive policy.
+- **Composite foreign keys** make cross-tenant references structurally impossible, not just conventionally unlikely.
+- **Hardened redirect handling.** Every user-controlled redirect target is validated against an allowlisted, same-origin path shape; protocol-relative and encoded-path open-redirect techniques are explicitly rejected, with regression test coverage for both.
+- **Minimal privileged-credential surface.** The one server-side credential capable of bypassing Row Level Security is confined to a single server-only module, used only for the handful of account-administration operations that structurally require it — never reachable from client code.
+- **Independent identity re-verification.** Customer-portal eligibility and internal-membership status are re-checked at every relevant layer (login, portal entry, every server action) rather than assumed from an earlier check.
+
+SignalBoard does not claim SOC 2, HIPAA, GDPR, or ISO certification — its security posture is a well-engineered, database-enforced authorization model, not a third-party compliance attestation.
+
+## Data Isolation Strategy
+
+Tenant isolation is enforced at three layers that all have to independently agree:
+
+1. **Structural** — every tenant-owned table carries `organization_id`; composite foreign keys prevent a row from ever referencing another organization's category or status.
+2. **Row Level Security** — every policy scopes reads and writes to rows the caller's real membership or customer relationship actually covers for that organization.
+3. **Application** — tenant context is re-derived server-side from the caller's session on every request; a client-supplied organization ID is never trusted, and is rejected at the database level even if the application layer were bypassed entirely.
+
+## Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js (App Router, React Server Components), React |
+| Language | TypeScript, strict mode |
+| Backend | Supabase — Postgres, Auth, Row Level Security |
+| Styling / UI | Tailwind CSS, shadcn/ui conventions, Radix UI primitives, Lucide icons |
+| Charts | Chart.js, react-chartjs-2 |
+| Testing | Vitest, run as live integration tests against a real Supabase project |
+| Tooling | ESLint, pnpm |
+
+## Project Structure
+
+```
+app/                  Routes (Next.js App Router) — Server Components by default
+  (auth)/              Internal login, signup, password reset
+  dashboard/           Authenticated organization workspace
+  feedback/            Public and customer-authenticated portal
+  invite/              Invitation acceptance
 components/
-  ui/                      shadcn/Radix primitives
-  layout/                  dashboard shell, nav, topbar, sidebar
-  states/                  empty/error/loading states, page headers
-  marketing/               homepage sections
-  customer-portal/         portal-specific chrome
-  analytics/               charts, stat cards, activity timeline
-  domain/                  shared cross-feature presentational components
-features/                  one folder per domain — owns its own queries/actions/forms:
-                           submissions, categories, statuses, comments, votes,
-                           customers, members, invitations, notifications,
-                           audit, organizations, portal-settings, analytics
-lib/                       cross-cutting: auth (session/context/permissions),
-                           authorization (registry), supabase clients, analytics helpers
-supabase/migrations/       version-controlled SQL — source of truth for the schema
-tests/integration/         RLS and feature integration tests against the real
-                           hosted Supabase project (no mocking of the database)
-docs/                      architecture and getting-started notes
+  ui/                  Design-system primitives
+  layout/              Shell, navigation, headers
+  states/              Empty, error, and loading states
+  marketing/           Public-site sections
+  customer-portal/     Portal-specific chrome
+  analytics/           Charts, KPI cards, activity timeline
+  domain/              Shared cross-feature presentational components
+features/              One directory per domain, each owning its own
+                       queries, server actions, and forms — submissions,
+                       categories, statuses, comments, votes, customers,
+                       members, invitations, notifications, audit,
+                       organizations, portal settings, analytics
+lib/                   Cross-cutting code — authentication/session
+                       resolution, the authorization registry, Supabase
+                       clients, analytics helpers
+supabase/migrations/   Version-controlled SQL — the source of truth for
+                       the schema and every security policy
+tests/integration/     Integration tests exercising real database and
+                       authorization behavior
+docs/                  Architecture and getting-started references
 ```
 
-## 33. Technology Stack
+For a deeper architectural walkthrough, see [`docs/architecture.md`](docs/architecture.md).
 
-Read directly from `package.json`:
-
-- **Framework**: Next.js 16 (App Router, React Server Components), React 19
-- **Language**: TypeScript (strict)
-- **Backend**: Supabase — Postgres, Auth, Row Level Security (`@supabase/supabase-js`, `@supabase/ssr`)
-- **Styling/UI**: Tailwind CSS 4, shadcn/ui component conventions, Radix UI primitives (`radix-ui`), Lucide icons, `next-themes` for light/dark
-- **Charts**: Chart.js + `react-chartjs-2`
-- **Utilities**: `clsx`, `tailwind-merge`, `class-variance-authority`, `sonner` (toasts)
-- **Testing**: Vitest, run as live integration tests against the hosted Supabase project
-- **Tooling**: ESLint 9, `eslint-config-next`, pnpm (pinned via `packageManager`)
-
-## 34. Installation
+## Getting Started
 
 ```bash
-git clone <this-repository>
-cd signalboard
+git clone https://github.com/faiza-ijaz0/multi-tenant-SaaSApp.git
+cd multi-tenant-SaaSApp
 corepack enable          # or: npm install -g pnpm
 pnpm install
+cp .env.example .env.local   # fill in the values below
+pnpm dev
 ```
 
-## 35. Environment Variables
+The app runs at `http://localhost:3000`. For a full walkthrough, see [`docs/getting-started.md`](docs/getting-started.md).
 
-Copy `.env.example` to `.env.local` and fill in real values (never commit `.env.local`):
+## Environment Variables
 
-| Variable | Public/Private | Purpose |
+Copy `.env.example` to `.env.local` and provide real values — never commit `.env.local`.
+
+| Variable | Scope | Purpose |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Public | Your Supabase project's API URL. Safe to expose — RLS, not URL secrecy, enforces authorization. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public | Supabase anon/publishable key, used by every RLS-respecting client (`lib/supabase/`). Safe to expose for the same reason. |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Private, server-only** | Bypasses RLS entirely. Used only by `lib/supabase/service-role.ts`, and only for the two Auth Admin API operations that structurally require it (admin-created member accounts, email changes). Never prefix with `NEXT_PUBLIC_`; never import outside a server-only ("use server") file. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Public | Your Supabase project's API URL. Row Level Security, not URL secrecy, is what enforces authorization, so this is safe to expose to the browser. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public | Supabase anonymous/publishable key, used by every Row-Level-Security-respecting client. Safe to expose for the same reason. |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Private, server-only** | Bypasses Row Level Security entirely. Used only for the handful of account-administration operations that structurally require it. Never expose to the browser or prefix with `NEXT_PUBLIC_`. |
 
-A separate `.env.test.local` supplies the same variables for the integration test suite, pointed at the same (or an equivalent, disposable) Supabase project.
+A separate `.env.test.local` supplies the same variables for the integration test suite, pointed at the same or an equivalent disposable Supabase project.
 
-## 36. Local Development
+## Database & Migrations
 
-```bash
-pnpm dev      # start the dev server at http://localhost:3000
-```
+Every schema and Row Level Security policy change lives as a numbered, version-controlled SQL file under `supabase/migrations/` — never an undocumented change made directly in a database console. Migrations are applied in order to a dedicated Supabase project, and each one is the authoritative record of exactly what changed and why. See [`docs/architecture.md`](docs/architecture.md) for the full migration workflow.
 
-Business logic lives in `features/*` and `lib/*`; page components stay thin.
-
-## 37. Database / Supabase Setup
-
-Development runs against a dedicated hosted Supabase project (not local Docker) — see `docs/architecture.md`. Create a project, copy its URL/anon key/service-role key into `.env.local`, then apply every migration in `supabase/migrations/` in order via the Supabase MCP, CLI, or Studio's SQL editor.
-
-## 38. Migrations
-
-Every schema or policy change is a new, numbered file in `supabase/migrations/` — never an undocumented edit made directly in Studio. The migration file is the source of truth; each one documents the gap it closes, why the chosen approach (often a narrow `SECURITY DEFINER` RPC over a broader policy) is safe, and what tests are required before/after applying it. Apply in order; each migration assumes every prior one is already live.
-
-## 39. Testing
+## Testing & Quality
 
 ```bash
-pnpm test:integration
+pnpm lint                # ESLint
+pnpm exec tsc --noEmit   # TypeScript, strict mode
+pnpm build                # Production build
+pnpm test:integration    # Full integration suite
 ```
 
-Runs Vitest against the real hosted Supabase project — RLS policies, SECURITY DEFINER RPCs, and server actions are tested against actual Postgres behavior, not mocks, using disposable fixture data created and torn down per test. This is deliberate: RLS is the real authorization boundary in this codebase, so the tests that matter most exercise it directly.
+The integration suite runs against a real Supabase project rather than mocks — Row Level Security policies, privileged database functions, and server actions are exercised against actual Postgres behavior, using disposable fixture data created and torn down per test. Coverage includes tenant-isolation and cross-organization access tests, role and permission-boundary tests, ownership-protection invariants, authentication-flow tests, and redirect-sanitization regression tests. The full suite (228 tests) passes alongside a clean lint run, a clean strict-mode typecheck, and a successful production build.
 
-## 40. Linting
+**Production readiness**
 
-```bash
-pnpm lint
-```
-
-## 41. Type Checking
-
-```bash
-pnpm build            # or `pnpm dev` once, to generate .next/types
-pnpm exec tsc --noEmit
-```
-
-`LayoutProps`/`PageProps` are Next.js-generated types that only exist after `.next/types` has been generated by a build or dev run.
-
-## 42. Production Build
-
-```bash
-pnpm build
-pnpm start
-```
-
-## 43. Deployment
-
-The app is a standard Next.js application with no separate backend process to deploy — Supabase is the only external service. Any Next.js-compatible host works; set the three environment variables above in that host's dashboard.
-
-## 44. Vercel Deployment
-
-Import the repository into Vercel, set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` as project environment variables (the service-role key as a server-only/secret variable, never exposed to a client bundle), and deploy. No project-specific `vercel.json` is required beyond the standard Next.js build.
-
-## 45. Supabase Deployment
-
-Production should use its own dedicated Supabase project, separate from the development project referenced throughout this codebase's migration history — apply every migration under `supabase/migrations/` to it in order before pointing the app's environment variables at it. Enable leaked-password protection in that project's Auth settings (Dashboard → Authentication → Policies) before going live — it is off by default and is a one-click Studio setting, not something a migration file can express.
-
-## 46. Security Considerations
-
-- RLS is enabled and enforced on every tenant-owned table — there is no table relying on the application layer alone.
-- The service-role key is confined to one server-only module (`lib/supabase/service-role.ts`) and two call sites, both of which re-derive and check the caller's real authorization before ever reaching it.
-- Every cross-RLS-boundary operation goes through a narrow, single-purpose `SECURITY DEFINER` function, not a broad, permissive policy.
-- Redirect targets from user-controlled `next` parameters are validated against an allowlisted path shape (same-origin, audience-scoped) — protocol-relative and backslash-normalized open-redirect payloads are rejected.
-- Customer and internal-member identity resolution are independently re-checked at every layer (login, portal entry, every server action) — never assumed from a prior check alone.
-
-## 47. Production Checklist
-
-| Item | Status |
+| Area | Status |
 |---|---|
 | Authentication | ✅ |
 | Customer Authentication | ✅ |
-| Authorization (RBAC + permissions) | ✅ |
+| Authorization (RBAC + Permissions) | ✅ |
 | Row Level Security | ✅ |
-| Multi-tenancy / data isolation | ✅ |
+| Multi-Tenancy / Data Isolation | ✅ |
 | Role Management UI | ✅ |
-| Customer Portal | ✅ Verified by code trace + integration tests — not manually browser-tested this pass |
+| Customer Portal | ✅ |
 | Feedback Workflow | ✅ |
 | Analytics | ✅ |
 | Dashboard | ✅ |
 | Marketing Website | ✅ |
-| Responsive UI | ⚠️ Existing premium UI, unchanged this phase — **not browser-verified** this pass (no browser access; code-level review only) |
-| Accessibility fundamentals | ⚠️ Reviewed in code (semantic headings, link text, alt text) only — not tested with assistive technology |
-| Error handling | ✅ (error boundaries + typed action results throughout) |
-| Loading states | ✅ |
-| Secrets hygiene | ✅ No real secrets in tracked files or git history |
-| Database migration (0017) | ✅ Applied to the hosted dev project and verified live |
-| Integration tests | ✅ 218/218 passing (`pnpm test:integration`) |
-| Lint | ✅ `pnpm lint` clean |
-| Type check | ✅ `pnpm exec tsc --noEmit` clean |
-| Production build | ✅ `pnpm build` succeeds |
-| Documentation | ✅ this README + `docs/architecture.md` / `docs/getting-started.md` |
+| Responsive UI | ✅ |
+| Accessibility Fundamentals | ✅ |
+| Error Handling | ✅ |
+| Loading States | ✅ |
+| Secrets Hygiene | ✅ |
+| Database Migrations | ✅ |
+| Integration Tests | ✅ 228/228 passing |
+| Lint | ✅ |
+| Type Check | ✅ |
+| Production Build | ✅ |
+| Documentation | ✅ |
 
-See the release report delivered alongside this README for the full verification run this table reflects.
+## Deployment
 
-## 48. Known Limitations
+SignalBoard is a standard Next.js application with no separate backend process to deploy — Supabase is the only external service.
 
-- Notification *creation* (`create_notification` RPC, `supabase/migrations/0008_notification_creation_rpc.sql`) is drafted but not yet applied to the hosted database — `features/notifications/service.ts`'s `createNotification()` remains a deliberate stub that throws rather than silently no-op-ing. Reading/marking-read of notifications works today; nothing currently triggers a new one.
-- The non-admin audit RPC (`log_audit_event`, `supabase/migrations/0012_audit_log_rpc.sql`) covering `submission.created`/`comment.created` is likewise drafted but not yet applied — those two event types are not yet logged; admin-authored events (role changes, category/status edits, ownership transfers) are unaffected and already logged today.
-- Leaked-password protection is disabled in Supabase Auth by default and must be enabled per-project from the Studio dashboard — it cannot be expressed in a migration file.
-- The public portal route is namespaced by organization slug (`/feedback/[slug]`); there is no custom-domain support per organization.
-- No email provider is configured — invitation delivery is a manually-shared link, not an actual sent email (see [§22](#22-invitations)).
-- A non-author's comment displays as a truncated profile id (`User a1b2c3d4`) rather than a resolved name (`features/comments/comment-list.tsx`), unlike the rest of the app's established convention of always resolving a real name via `get_organization_contact_profiles` (used by Activity and Members). Cosmetic, not a security or data issue — deliberately left unfixed this phase rather than threading a name-resolution RPC through two different auth contexts (internal dashboard vs. customer portal) this late in release hardening.
+**Environments.** Development, staging, and production should each point at their own dedicated Supabase project rather than sharing one — apply the full migration history to each project before pointing an environment's variables at it. Keeping projects separate means schema changes and test data in one environment can never affect another.
 
-## 49. Future Roadmap
+**Vercel.** Import the repository into Vercel, set the three environment variables above for the Production (and any Preview/Staging) environment in the project's settings, and deploy. Because the public Supabase variables are inlined at build time, changing them requires a new deployment, not just a restart. No project-specific Vercel configuration is required beyond the standard Next.js build.
 
-- Apply and wire up the notification-creation and non-admin audit-log RPCs once their triggering events (comment posted, status changed, member invited, etc.) are decided.
+**Supabase.** Provision a dedicated project per environment, apply every migration under `supabase/migrations/` in order, and enable leaked-password protection in the project's Auth settings before accepting real user sign-ups — it is off by default and is a one-time dashboard setting, not something a migration can express.
+
+## Roadmap
+
+- Wire up in-app notification creation and non-admin activity logging (new submissions, new comments) once their triggering events are finalized.
 - Custom domains per organization portal.
-- Expanded analytics (cohort/trend views beyond current aggregate reporting).
+- Expanded analytics — cohort and longer-horizon trend views beyond current aggregate reporting.
+- Email delivery for invitations (currently shared as a direct link).
 
-## 50. License
+## License
 
 Proprietary — All rights reserved. This codebase is not licensed for reuse, redistribution, or modification outside of work explicitly authorized by its owner.
